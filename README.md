@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-> **Live demo:** https://你的用户名.github.io/percolation-tool  
+> **Live demo:** https://xiaorehothot-lgtm.github.io/percolation-tool  
 > **No installation required** — single HTML file, runs in any browser, works offline.
 
 A browser-based interactive tool for determining the **percolation threshold (φc)**, **critical exponent (t)**, and **pre-factor (κ₀)** of conductive polymer composites from experimental conductivity vs. filler loading data.
@@ -23,7 +23,7 @@ A browser-based interactive tool for determining the **percolation threshold (φ
 
 ## 🚀 Quick Start
 
-1. Open the [live demo](https://你的用户名.github.io/percolation-tool) or download `percolation_tool.html`
+1. Open the [live demo](https://xiaorehothot-lgtm.github.io/percolation-tool) or download `percolation_tool.html`
 2. Paste your **φ** (CNT loading, wt%) and **κ** (conductivity, S/m) — one value per line
 3. Click **Start Fitting**
 4. Example:
