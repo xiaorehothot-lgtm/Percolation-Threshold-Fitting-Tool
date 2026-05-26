@@ -1,0 +1,1524 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>渗流阈值拟合工具 | Percolation Threshold Fitting</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  /* ============================================================
+     Apple Store 风格设计系统
+     ============================================================ */
+  :root {
+    --fill-primary:   #f5f5f7;
+    --fill-secondary: #fafafa;
+    --fill-tertiary:  #ffffff;
+    --fill-quaternary:#e8e8ed;
+    --label-primary:  #1d1d1f;
+    --label-secondary:#86868b;
+    --label-tertiary: #aeaeb2;
+    --label-quaternary:#d2d2d7;
+    --separator:      #e5e5ea;
+    --apple-blue:     #0071e3;
+    --apple-blue-hover:#0077ed;
+    --apple-green:    #34c759;
+    --apple-orange:   #ff9500;
+    --apple-red:      #ff3b30;
+    --apple-teal:     #5ac8fa;
+    --glass-bg:       rgba(255,255,255,0.72);
+    --radius-sm: 10px;
+    --radius-md: 16px;
+    --radius-lg: 20px;
+    --radius-xl: 24px;
+    --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+    --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, "SF Pro Display", "SF Pro Text",
+                 "Helvetica Neue", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--fill-primary);
+    color: var(--label-primary);
+    line-height: 1.47059;
+    min-height: 100vh;
+    padding: 40px 24px 80px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    letter-spacing: -0.016em;
+  }
+
+  .container {
+    max-width: 1080px; margin: 0 auto;
+    display: flex; flex-direction: column; gap: 20px;
+  }
+
+  /* ---- header ---- */
+  .header {
+    display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap;
+    padding: 0 8px;
+  }
+  .header h1 {
+    font-size: 2rem; font-weight: 700; color: var(--label-primary);
+    letter-spacing: -0.022em; line-height: 1.1;
+  }
+  .header .badge {
+    font-size: .68rem; font-weight: 590; letter-spacing: 0.04em;
+    background: var(--fill-quaternary); color: var(--label-secondary);
+    padding: 4px 12px; border-radius: 100px; margin-bottom: 4px;
+  }
+  .sub {
+    color: var(--label-secondary); font-size: .85rem;
+    padding: 0 8px; margin-top: -12px; letter-spacing: -0.01em;
+  }
+  .sub code {
+    background: var(--fill-quaternary); padding: 3px 8px; border-radius: 6px;
+    font-size: .78rem; color: var(--label-primary); font-weight: 500;
+  }
+
+  /* ---- cards ---- */
+  .card {
+    background: var(--fill-tertiary);
+    border-radius: var(--radius-xl);
+    padding: 28px 32px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.04), 0 4px 12px rgba(0,0,0,.03);
+    transition: box-shadow .35s var(--ease-out);
+    border: .5px solid rgba(0,0,0,.06);
+  }
+  .card:hover { box-shadow: 0 2px 6px rgba(0,0,0,.06), 0 6px 18px rgba(0,0,0,.04); }
+  .card-head {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 20px; padding-bottom: 12px;
+    border-bottom: .5px solid var(--separator);
+  }
+  .card-head .icon { font-size: 1.2rem; opacity: .8; }
+  .card-head h2 {
+    font-size: 1.05rem; font-weight: 600; color: var(--label-primary);
+    letter-spacing: -0.014em;
+  }
+
+  /* ---- dataset tabs ---- */
+  .ds-tabs { display: flex; gap: 2px; margin-left: auto; }
+  .ds-tab {
+    padding: 5px 14px; border: none; background: transparent;
+    font-size: .74rem; font-weight: 550; cursor: pointer;
+    color: var(--label-secondary); font-family: inherit;
+    border-radius: 8px; transition: all .2s var(--ease-out);
+    letter-spacing: -0.01em;
+  }
+  .ds-tab:hover { background: var(--fill-quaternary); color: var(--label-primary); }
+  .ds-tab.active { background: var(--apple-blue); color: #fff; }
+  .ds-panels { position: relative; }
+  .ds-panel { display: none; }
+  .ds-panel.active { display: block; }
+
+  /* ---- input ---- */
+  .input-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .input-col { display: flex; flex-direction: column; }
+  .input-col .col-label {
+    display: flex; align-items: baseline; gap: 6px;
+    font-size: .75rem; font-weight: 600; color: var(--label-secondary);
+    margin-bottom: 8px; letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+  .input-col .col-label .unit {
+    font-weight: 400; color: var(--label-tertiary); text-transform: none;
+    letter-spacing: 0; font-size: .72rem;
+  }
+  .input-col textarea {
+    flex: 1; min-height: 152px;
+    font-family: "SF Mono", "Menlo", "Consolas", "Courier New", monospace;
+    font-size: .82rem; line-height: 1.6; padding: 14px 16px;
+    border: 1px solid var(--fill-quaternary); border-radius: var(--radius-md);
+    background: var(--fill-secondary); color: var(--label-primary);
+    resize: vertical; outline: none;
+    transition: border-color .2s var(--ease-out), box-shadow .2s var(--ease-out);
+  }
+  .input-col textarea:focus {
+    border-color: var(--apple-blue);
+    box-shadow: 0 0 0 4px rgba(0,113,227,.12);
+    background: #fff;
+  }
+  .input-col textarea::placeholder { color: var(--label-tertiary); }
+
+  /* ---- param row ---- */
+  .param-row {
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+    margin-top: 16px;
+  }
+  .param-group {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--fill-secondary); padding: 6px 12px;
+    border-radius: 100px; border: 1px solid var(--fill-quaternary);
+  }
+  .param-group label {
+    font-size: .74rem; font-weight: 560; color: var(--label-secondary);
+    white-space: nowrap; letter-spacing: -0.01em;
+  }
+  .param-group input[type=number] {
+    width: 58px; padding: 2px 4px; border: none; background: transparent;
+    font-size: .84rem; font-weight: 600; color: var(--label-primary);
+    text-align: center; outline: none; font-family: inherit;
+    letter-spacing: -0.01em;
+  }
+
+  .divider { width: 1px; height: 20px; background: var(--separator); margin: 0 6px; }
+
+  .step-presets {
+    display: flex; align-items: center; gap: 0;
+    background: rgba(0,0,0,.04); border-radius: 100px;
+    overflow: hidden;
+  }
+  .preset-label {
+    font-size: .7rem; font-weight: 600; color: var(--label-secondary);
+    padding: 0 12px; letter-spacing: 0.04em;
+  }
+  .preset-btn {
+    padding: 7px 14px; border: none; background: transparent;
+    font-size: .76rem; font-weight: 590; cursor: pointer;
+    color: var(--label-secondary); font-family: inherit;
+    transition: all .2s var(--ease-out);
+    letter-spacing: -0.01em;
+  }
+  .preset-btn:hover { color: var(--label-primary); }
+  .preset-btn.active {
+    background: #fff; color: var(--label-primary);
+    box-shadow: 0 1px 4px rgba(0,0,0,.08), 0 0 0 .5px rgba(0,0,0,.04);
+    border-radius: 100px;
+  }
+
+  .lock-group {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 12px; border-radius: 100px;
+    border: 1px solid var(--fill-quaternary);
+    transition: all .25s var(--ease-out);
+  }
+  .lock-group.active {
+    border-color: var(--apple-orange);
+    background: rgba(255,149,0,.06);
+  }
+  .lock-group input[type=checkbox] {
+    accent-color: var(--apple-orange); width: 16px; height: 16px; cursor: pointer;
+  }
+  .lock-group .lock-label {
+    font-size: .74rem; color: var(--label-secondary);
+    white-space: nowrap; letter-spacing: -0.01em;
+  }
+  .lock-group input[type=number] {
+    width: 54px; padding: 3px 6px; border: 1px solid var(--fill-quaternary);
+    border-radius: 8px; font-size: .78rem; text-align: center;
+    background: #fff; outline: none; font-family: inherit;
+    transition: border-color .2s var(--ease-out);
+  }
+  .lock-group input[type=number]:focus { border-color: var(--apple-orange); }
+  .lock-group input[type=number]:disabled {
+    background: var(--fill-secondary); color: var(--label-tertiary);
+  }
+
+  /* ---- buttons ---- */
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 10px 22px; border: none; border-radius: 100px;
+    font-size: .84rem; font-weight: 590; cursor: pointer;
+    transition: all .25s var(--ease-out); font-family: inherit;
+    letter-spacing: -0.01em; -webkit-user-select: none;
+  }
+  .btn-primary {
+    background: var(--apple-blue); color: #fff;
+  }
+  .btn-primary:hover { background: var(--apple-blue-hover); }
+  .btn-primary:active { transform: scale(.97); }
+  .btn-ghost {
+    background: var(--fill-tertiary); color: var(--apple-blue);
+    border: 1px solid var(--fill-quaternary);
+  }
+  .btn-ghost:hover {
+    background: rgba(0,113,227,.04); border-color: var(--apple-blue);
+  }
+  .btn-sm { padding: 6px 16px; font-size: .76rem; }
+
+  /* ---- alerts ---- */
+  .warning-box {
+    background: rgba(255,149,0,.06); border: 1px solid rgba(255,149,0,.2);
+    border-radius: var(--radius-md); padding: 12px 16px;
+    margin-top: 12px; font-size: .8rem; color: #b46400;
+    line-height: 1.45; letter-spacing: -0.01em;
+  }
+  .warning-box strong { color: #8a4d00; font-weight: 600; }
+  .success-hint {
+    color: var(--apple-green); font-size: .78rem; font-weight: 550;
+    margin-top: 8px; display: flex; align-items: center; gap: 5px;
+  }
+
+  /* ---- result banner ---- */
+  .result-banner {
+    display: flex; gap: 16px; flex-wrap: wrap; align-items: stretch;
+    padding: 24px 28px;
+    background: linear-gradient(160deg, rgba(52,199,89,.06) 0%, rgba(90,200,250,.04) 100%);
+    border: 1px solid rgba(52,199,89,.15);
+    border-radius: var(--radius-lg); margin-top: 12px;
+    backdrop-filter: blur(10px);
+  }
+  .result-banner .param {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    flex: 1; min-width: 90px; padding: 12px 16px;
+    background: rgba(255,255,255,.65); border-radius: var(--radius-md);
+    backdrop-filter: blur(6px);
+  }
+  .result-banner .param .val {
+    font-size: 1.35rem; font-weight: 680; color: var(--label-primary);
+    font-variant-numeric: tabular-nums; letter-spacing: -0.018em;
+  }
+  .result-banner .param .lbl {
+    font-size: .66rem; font-weight: 550; color: var(--label-secondary);
+    margin-top: 4px; letter-spacing: 0.03em; text-transform: uppercase;
+  }
+  .result-banner .param.star .val {
+    background: linear-gradient(135deg, var(--apple-orange), #ff6b00);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* ---- table ---- */
+  .table-wrap {
+    max-height: 380px; overflow-y: auto;
+    border: 1px solid var(--fill-quaternary);
+    border-radius: var(--radius-md);
+    -webkit-overflow-scrolling: touch;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: .8rem; font-variant-numeric: tabular-nums; }
+  thead { position: sticky; top: 0; z-index: 2; }
+  th {
+    padding: 10px 14px; text-align: right;
+    font-size: .7rem; font-weight: 600;
+    background: rgba(0,0,0,.025); color: var(--label-secondary);
+    letter-spacing: 0.04em; text-transform: uppercase;
+    border-bottom: 1px solid var(--separator);
+  }
+  th:first-child { text-align: left; padding-left: 20px; }
+  td {
+    padding: 9px 14px; text-align: right;
+    border-bottom: .5px solid rgba(0,0,0,.04);
+    color: var(--label-primary);
+  }
+  td:first-child { text-align: left; padding-left: 20px; font-weight: 560; }
+  tr:nth-child(even) { background: rgba(0,0,0,.012); }
+  tr:hover { background: rgba(0,113,227,.03); }
+  tr.best {
+    background: rgba(255,149,0,.06) !important; font-weight: 600;
+    box-shadow: inset 4px 0 0 var(--apple-orange);
+  }
+  tr.best td { color: var(--label-primary); }
+  tr.best td:first-child::after { content: " · 最优"; color: var(--apple-orange); font-size: .7rem; margin-left: 6px; font-weight: 600; }
+  tr.near { background: rgba(0,113,227,.025) !important; }
+  tr.near td:first-child::after { content: " · 网格最优"; color: var(--apple-blue); font-size: .68rem; margin-left: 6px; }
+
+  /* ---- charts ---- */
+  .chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .chart-box {
+    background: var(--fill-secondary);
+    border: 1px solid var(--fill-quaternary);
+    border-radius: var(--radius-lg); padding: 18px;
+  }
+  canvas { width: 100% !important; max-height: 310px; }
+
+  .collapsed { display: none !important; }
+
+  .diag-grid {
+    display: flex; flex-direction: column; gap: 14px;
+    padding: 6px 0; height: 100%; justify-content: center;
+  }
+  .diag-item {
+    background: var(--fill-secondary); border-radius: var(--radius-md);
+    padding: 14px 16px; border: 1px solid var(--fill-quaternary);
+  }
+  .diag-item .diag-label {
+    font-size: .68rem; font-weight: 600; color: var(--label-secondary);
+    text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px;
+  }
+  .diag-item .diag-val {
+    font-size: 1rem; font-weight: 650; color: var(--label-primary);
+    letter-spacing: -0.01em;
+  }
+  .diag-item .diag-sub {
+    font-size: .7rem; color: var(--label-tertiary); margin-top: 2px;
+  }
+  .diag-ok    { border-left: 3px solid var(--apple-green); }
+  .diag-warn  { border-left: 3px solid var(--apple-orange); }
+  .diag-bad   { border-left: 3px solid var(--apple-red); }
+
+  /* ---- footer ---- */
+  .footer {
+    text-align: center; font-size: .7rem; color: var(--label-tertiary);
+    padding-top: 12px; letter-spacing: 0.01em;
+  }
+
+  /* ---- report modal ---- */
+  .modal-overlay {
+    position: fixed; inset: 0; z-index: 100;
+    background: rgba(0,0,0,.35);
+    backdrop-filter: blur(6px);
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none;
+    transition: opacity .3s var(--ease-out);
+  }
+  .modal-overlay.show { opacity: 1; pointer-events: auto; }
+  .modal {
+    background: var(--fill-tertiary); border-radius: var(--radius-xl);
+    box-shadow: 0 8px 40px rgba(0,0,0,.12), 0 2px 12px rgba(0,0,0,.06);
+    width: 90vw; max-width: 720px; max-height: 85vh;
+    display: flex; flex-direction: column; overflow: hidden;
+    border: .5px solid rgba(0,0,0,.06);
+  }
+  .modal-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 28px 14px; border-bottom: .5px solid var(--separator);
+  }
+  .modal-header h2 { font-size: 1.1rem; font-weight: 650; letter-spacing: -0.014em; }
+  .modal-close {
+    width: 32px; height: 32px; border-radius: 100px; border: none;
+    background: var(--fill-quaternary); cursor: pointer; font-size: 1rem;
+    color: var(--label-secondary); display: flex; align-items: center;
+    justify-content: center; transition: all .2s var(--ease-out);
+  }
+  .modal-close:hover { background: rgba(0,0,0,.1); color: var(--label-primary); }
+  .modal-body {
+    flex: 1; overflow-y: auto; padding: 20px 28px 24px;
+    font-size: .82rem; line-height: 1.6; color: var(--label-primary);
+    letter-spacing: -0.01em;
+    white-space: pre-wrap; font-family: "SF Mono", "Menlo", "Consolas", monospace;
+    background: var(--fill-secondary);
+  }
+  .modal-body h3 {
+    font-family: -apple-system, "SF Pro Display", sans-serif;
+    font-size: .9rem; font-weight: 650; margin: 18px 0 8px;
+    color: var(--label-primary); letter-spacing: -0.01em;
+  }
+  .modal-body h3:first-child { margin-top: 0; }
+  .modal-body .eq { color: var(--apple-blue); font-weight: 560; }
+  .modal-body .val { color: var(--apple-orange); font-weight: 600; }
+  .modal-footer {
+    display: flex; gap: 10px; padding: 14px 28px 20px;
+    border-top: .5px solid var(--separator);
+  }
+  @media print {
+    body > *:not(.modal-overlay) { display: none !important; }
+    .modal-overlay { position: static; backdrop-filter: none; background: #fff; opacity: 1; }
+    .modal { box-shadow: none; border: none; max-width: 100%; max-height: none; }
+    .modal-footer { display: none; }
+  }
+
+  /* ---- responsive ---- */
+  @media (max-width: 760px) {
+    body { padding: 20px 14px 60px; }
+    .card { padding: 20px 18px; border-radius: var(--radius-lg); }
+    .header h1 { font-size: 1.5rem; }
+    .input-grid, .chart-row { grid-template-columns: 1fr; }
+    .result-banner { gap: 10px; padding: 16px; }
+    .result-banner .param { min-width: 65px; padding: 10px; }
+    .result-banner .param .val { font-size: 1.1rem; }
+    .param-row { gap: 8px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <h1>渗流阈值拟合工具</h1>
+    <span class="badge">Percolation Theory</span>
+  </div>
+  <p class="sub"><code>κ ≈ κ₀(φ − φc)<sup>t</sup></code>  →  <code>ln(κ) = ln(κ₀) + t · ln(φ − φc)</code></p>
+
+  <!-- INPUT -->
+  <div class="card">
+    <div class="card-head">
+      <span class="icon">📥</span>
+      <h2>实验数据</h2>
+      <div class="ds-tabs" id="dsTabs">
+        <button class="ds-tab active" data-ds="1">数据 1</button>
+        <button class="ds-tab" data-ds="2">数据 2</button>
+        <button class="ds-tab" data-ds="3">数据 3</button>
+        <button class="ds-tab" data-ds="4">数据 4</button>
+      </div>
+    </div>
+    <div class="ds-panels" id="dsPanels">
+      <div class="ds-panel active" data-ds="1">
+        <div class="input-grid">
+          <div class="input-col">
+            <div class="col-label">φ <span class="unit">CNT 浓度 / wt%</span></div>
+            <textarea id="phiInput1" placeholder="每行一个数值">0.5
+1.0
+2.0</textarea>
+          </div>
+          <div class="input-col">
+            <div class="col-label">κ <span class="unit">体积电导率 / S·m⁻¹</span></div>
+            <textarea id="kappaInput1" placeholder="与 φ 一一对应">0.036
+0.395
+3.895</textarea>
+          </div>
+        </div>
+      </div>
+      <div class="ds-panel" data-ds="2">
+        <div class="input-grid">
+          <div class="input-col">
+            <div class="col-label">φ <span class="unit">CNT 浓度 / wt%</span></div>
+            <textarea id="phiInput2" placeholder="可选，留空则跳过"></textarea>
+          </div>
+          <div class="input-col">
+            <div class="col-label">κ <span class="unit">体积电导率 / S·m⁻¹</span></div>
+            <textarea id="kappaInput2" placeholder="与 φ 一一对应"></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="ds-panel" data-ds="3">
+        <div class="input-grid">
+          <div class="input-col">
+            <div class="col-label">φ <span class="unit">CNT 浓度 / wt%</span></div>
+            <textarea id="phiInput3" placeholder="可选，留空则跳过"></textarea>
+          </div>
+          <div class="input-col">
+            <div class="col-label">κ <span class="unit">体积电导率 / S·m⁻¹</span></div>
+            <textarea id="kappaInput3" placeholder="与 φ 一一对应"></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="ds-panel" data-ds="4">
+        <div class="input-grid">
+          <div class="input-col">
+            <div class="col-label">φ <span class="unit">CNT 浓度 / wt%</span></div>
+            <textarea id="phiInput4" placeholder="可选，留空则跳过"></textarea>
+          </div>
+          <div class="input-col">
+            <div class="col-label">κ <span class="unit">体积电导率 / S·m⁻¹</span></div>
+            <textarea id="kappaInput4" placeholder="与 φ 一一对应"></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="param-row">
+      <div class="param-group">
+        <label>φc 起始</label>
+        <input type="number" id="phiStart" value="0.01" step="0.001" min="0.001">
+      </div>
+      <div class="param-group">
+        <label>步长</label>
+        <input type="number" id="phiStep" value="0.01" step="0.001" min="0.001">
+      </div>
+      <span class="divider"></span>
+      <div class="step-presets">
+        <span class="preset-label">精度</span>
+        <button class="preset-btn" data-step="0.1">0.1</button>
+        <button class="preset-btn active" data-step="0.01">0.01</button>
+        <button class="preset-btn" data-step="0.001">0.001</button>
+      </div>
+      <span class="divider"></span>
+      <div class="lock-group" id="lockGroup">
+        <input type="checkbox" id="lockPhiC">
+        <span class="lock-label">锁定 φc =</span>
+        <input type="number" id="lockedPhiC" value="0.10" step="0.001" min="0.001" disabled>
+        <span class="lock-label">wt%</span>
+      </div>
+      <button class="btn btn-primary" id="runBtn">▶ 开始拟合</button>
+      <button class="btn btn-ghost btn-sm" id="loadDemo">加载示例</button>
+    </div>
+    <div id="dataWarning"></div>
+  </div>
+
+  <!-- RESULT BANNER -->
+  <div class="card" id="resultCard" style="display:none">
+    <div class="card-head">
+      <span class="icon">📊</span>
+      <h2>拟合结果</h2>
+    </div>
+    <div id="fitWarning"></div>
+    <div class="result-banner" id="resultBanner"></div>
+  </div>
+
+  <!-- REFINEMENT STEPS -->
+  <div class="card" id="stepsCard" style="display:none">
+    <div class="card-head">
+      <span class="icon">🔍</span>
+      <h2>RSS 最小化精化过程（黄金分割搜索）</h2>
+    </div>
+    <div class="table-wrap" style="max-height:260px">
+      <table>
+        <thead><tr>
+          <th>迭代</th><th>搜索区间 [a, b]</th>
+          <th>φc₁</th><th>RSS₁</th><th>φc₂</th><th>RSS₂</th><th>区间宽度</th>
+        </tr></thead>
+        <tbody id="stepsBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TABLE -->
+  <div class="card" id="tableCard" style="display:none">
+    <div class="card-head">
+      <span class="icon">📋</span>
+      <h2>候选 φc 列表（按 Adj. R² 降序）</h2>
+      <button class="btn btn-ghost btn-sm" onclick="exportCSV()" style="margin-left:auto">⬇ 导出 CSV</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>φc (wt%)</th><th>t</th><th>ln(κ₀)</th><th>κ₀ (S/m)</th>
+          <th>R²</th><th>Adj. R²</th>
+        </tr></thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- CHARTS -->
+  <div class="card" id="chartCard" style="display:none">
+    <div class="card-head">
+      <span class="icon">📈</span>
+      <h2>可视化</h2>
+    </div>
+    <div class="chart-row">
+      <div class="chart-box"><canvas id="chartA"></canvas></div>
+      <div class="chart-box"><canvas id="chartB"></canvas></div>
+    </div>
+  </div>
+
+  <!-- RESIDUALS -->
+  <div class="card" id="residCard" style="display:none">
+    <div class="card-head">
+      <span class="icon">📉</span>
+      <h2>残差诊断 &amp; 物理校验</h2>
+    </div>
+    <div class="chart-row">
+      <div class="chart-box"><canvas id="chartResid"></canvas></div>
+      <div class="chart-box" id="physBox">
+        <div class="diag-grid" id="physGrid"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- COMPARISON -->
+  <div class="card" id="compareCard" style="display:none">
+    <div class="card-head">
+      <span class="icon">📊</span>
+      <h2>多数据集对比</h2>
+    </div>
+    <div class="table-wrap" style="max-height:300px">
+      <table>
+        <thead><tr>
+          <th>数据集</th><th>n</th><th>φc (wt%)</th><th>t</th><th>κ₀ (S/m)</th><th>R²</th><th>Adj.R²</th>
+        </tr></thead>
+        <tbody id="compareBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- EXPERT PANEL -->
+  <div class="card" id="expertCard" style="display:none">
+    <div class="card-head" style="cursor:pointer" onclick="document.getElementById('expertBody').classList.toggle('collapsed')">
+      <span class="icon">🔬</span>
+      <h2>专家诊断</h2>
+      <span style="margin-left:auto;font-size:.7rem;color:var(--label-tertiary)">点击展开/折叠</span>
+    </div>
+    <div id="expertBody">
+      <div class="chart-row">
+        <div class="chart-box"><canvas id="chartRSS"></canvas></div>
+        <div class="chart-box" id="diagBox">
+          <div class="diag-grid" id="diagGrid"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- REPORT MODAL -->
+  <div class="modal-overlay" id="reportModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>拟合报告</h2>
+        <button class="modal-close" id="modalClose">✕</button>
+      </div>
+      <div class="modal-body" id="modalBody"></div>
+      <div class="modal-footer">
+        <button class="btn btn-primary btn-sm" id="copyReport">📋 复制</button>
+        <button class="btn btn-ghost btn-sm" id="printReport">🖨 打印</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">Percolation Threshold Fitting Tool · κ ≈ κ₀(φ − φc)<sup>t</sup></div>
+
+</div>
+
+<script>
+// ============================================================
+//  线性回归 (ordinary least squares)
+// ============================================================
+function linearRegression(xs, ys) {
+  const n = xs.length;
+  if (n < 2) throw new Error("至少需要 2 个数据点");
+  let sx = 0, sy = 0, sxy = 0, sx2 = 0, sy2 = 0;
+  for (let i = 0; i < n; i++) {
+    sx  += xs[i];  sy  += ys[i];
+    sxy += xs[i] * ys[i];
+    sx2 += xs[i] * xs[i];
+    sy2 += ys[i] * ys[i];
+  }
+  const denom = n * sx2 - sx * sx;
+  if (Math.abs(denom) < 1e-15) throw new Error("x 值全相同，无法回归");
+  const slope     = (n * sxy - sx * sy) / denom;
+  const intercept = (sy - slope * sx) / n;
+  // R²
+  const yMean = sy / n;
+  let ssReg = 0, ssTot = 0;
+  for (let i = 0; i < n; i++) {
+    const yPred = slope * xs[i] + intercept;
+    ssReg += (yPred - yMean) ** 2;
+    ssTot += (ys[i]  - yMean) ** 2;
+  }
+  const r2 = ssTot > 0 ? ssReg / ssTot : 0;
+  return { slope, intercept, r2 };
+}
+
+// ============================================================
+//  单点拟合：给定 φc → 返回 {t, ln_k0, k0, r2, adjR2, rss}
+// ============================================================
+function fitAtPhiC(phi, kappa, pc) {
+  const n = phi.length;
+  const xs = [], ys = [];
+  let rss = 0;
+  for (let i = 0; i < n; i++) {
+    const d = phi[i] - pc;
+    if (d <= 0) return null;
+    xs.push(Math.log(d));
+    ys.push(Math.log(kappa[i]));
+  }
+  if (xs.length < 2) return null;
+  const { slope, intercept, r2 } = linearRegression(xs, ys);
+  const m = xs.length;
+  const adjR2 = 1 - (1 - r2) * (m - 1) / Math.max(1, m - 2);
+
+  // RSS in log-space: Σ(ln(κ) - (ln(κ₀) + t·ln(φ−φc)))²
+  for (let i = 0; i < m; i++)
+    rss += (ys[i] - (intercept + slope * xs[i])) ** 2;
+
+  return {
+    phi_c: pc, t: slope, ln_k0: intercept,
+    k0: Math.exp(intercept), r2, adjR2, nUsed: m, rss
+  };
+}
+
+// ============================================================
+//  主拟合逻辑
+// ============================================================
+function doFitting(phiRaw, kappaRaw, phiStart, phiStep, lockedPhiC) {
+  const phiArr   = phiRaw.split(/[\n,;\s]+/).map(Number).filter(x => !isNaN(x));
+  const kappaArr = kappaRaw.split(/[\n,;\s]+/).map(Number).filter(x => !isNaN(x));
+
+  if (phiArr.length !== kappaArr.length)
+    throw new Error(`φ (${phiArr.length} 个) 与 κ (${kappaArr.length} 个) 数量不一致`);
+  if (phiArr.length < 3)
+    throw new Error(`至少需要 3 个数据点（当前 ${phiArr.length} 个）`);
+
+  const pairs = phiArr.map((p, i) => [p, kappaArr[i]]).sort((a, b) => a[0] - b[0]);
+  const phi   = pairs.map(p => p[0]);
+  const kappa = pairs.map(p => p[1]);
+  const minPhi = phi[0], n = phi.length;
+
+  // ── 阶段 1：粗网格扫描 ──
+  const cand = [];
+  if (lockedPhiC !== null) {
+    if (lockedPhiC <= 0 || lockedPhiC >= minPhi)
+      throw new Error(`锁定的 φc=${lockedPhiC} 无效：必须在 0 到最小 φ (${minPhi}) 之间`);
+    cand.push(lockedPhiC);
+  } else {
+    for (let pc = phiStart; pc < minPhi - phiStep / 2; pc += phiStep)
+      cand.push(Number(pc.toFixed(6)));
+  }
+  if (cand.length === 0)
+    throw new Error(`没有有效候选 φc（最小 φ=${minPhi}，起始 φc=${phiStart}）`);
+
+  const grid = [];
+  for (const pc of cand) {
+    const r = fitAtPhiC(phi, kappa, pc);
+    if (r) grid.push(r);
+  }
+  if (grid.length === 0)
+    throw new Error("无有效拟合结果");
+
+  grid.sort((a, b) => b.adjR2 - a.adjR2);
+
+  // ── 阶段 2：黄金分割搜索精化（仅在非锁定模式） ──
+  let refined = null, refineSteps = [];
+  if (lockedPhiC === null && grid.length >= 3) {
+    const gridBest = grid[0];
+    const lo = Math.max(phiStart, gridBest.phi_c - phiStep * 3);
+    const hi = Math.min(minPhi - 1e-9, gridBest.phi_c + phiStep * 3);
+    const gr = (Math.sqrt(5) - 1) / 2;  // golden ratio conjugate
+    let a = lo, b = hi;
+    let c = b - gr * (b - a);
+    let d = a + gr * (b - a);
+    let fc = fitAtPhiC(phi, kappa, c);
+    let fd = fitAtPhiC(phi, kappa, d);
+
+    refineSteps.push({
+      iter: 0, a: +a.toFixed(6), b: +b.toFixed(6),
+      c: +c.toFixed(6), d: +d.toFixed(6),
+      rss_c: fc ? fc.rss : null, rss_d: fd ? fd.rss : null
+    });
+
+    for (let iter = 1; iter <= 30; iter++) {
+      if (Math.abs(b - a) < 1e-8) break;
+      if (!fc || !fd) break;
+      if (fc.rss < fd.rss) {
+        b = d; d = c; fd = fc;
+        c = b - gr * (b - a);
+        fc = fitAtPhiC(phi, kappa, c);
+      } else {
+        a = c; c = d; fc = fd;
+        d = a + gr * (b - a);
+        fd = fitAtPhiC(phi, kappa, d);
+      }
+      refineSteps.push({
+        iter, a: +a.toFixed(6), b: +b.toFixed(6),
+        c: +c.toFixed(6), d: +d.toFixed(6),
+        rss_c: fc ? fc.rss : null, rss_d: fd ? fd.rss : null
+      });
+    }
+    const phiCOpt = (a + b) / 2;
+    refined = fitAtPhiC(phi, kappa, phiCOpt);
+    if (refined) refined.phi_c = phiCOpt;
+  }
+
+  return {
+    grid, bestGrid: grid[0],
+    refined, refineSteps,
+    phi, kappa, minPhi, n, lockedPhiC
+  };
+}
+
+// ============================================================
+//  渲染
+// ============================================================
+let chartA = null, chartB = null, chartRSS = null, chartResid = null;
+
+function destroyCharts() {
+  [chartA, chartB, chartRSS, chartResid].forEach(c => { if (c) c.destroy(); });
+  chartA = chartB = chartRSS = chartResid = null;
+}
+
+function renderMultiResults(allResults, isLocked, isMulti) {
+  // Render primary dataset as before
+  const primary = allResults[0];
+  renderResults(primary, isLocked);
+
+  // Multi-dataset comparison
+  const cc = document.getElementById("compareCard");
+  if (isMulti && allResults.length >= 2) {
+    cc.style.display = "";
+    const cb = document.getElementById("compareBody");
+    let html = "";
+    for (const r of allResults) {
+      const best = r.refined || r.bestGrid;
+      html += `<tr>
+        <td><strong>${r.dsName}</strong></td>
+        <td>${r.n}</td>
+        <td>${best.phi_c.toFixed(4)}</td>
+        <td>${best.t.toFixed(4)}</td>
+        <td>${best.k0.toExponential(3)}</td>
+        <td>${best.r2.toFixed(6)}</td>
+        <td>${best.adjR2.toFixed(6)}</td>
+      </tr>`;
+    }
+    cb.innerHTML = html;
+  } else {
+    cc.style.display = "none";
+  }
+
+  // Overlay charts if multi
+  if (isMulti) {
+    updateMultiCharts(allResults);
+  }
+}
+
+function updateMultiCharts(allResults) {
+  destroyCharts();
+  const colors = ["#0071e3", "#ff9500", "#34c759", "#ff3b30"];
+  const names  = allResults.map(r => r.dsName);
+
+  // Chart A: κ vs φ overlay
+  const ctxA = document.getElementById("chartA").getContext("2d");
+  const allPhi = allResults.flatMap(r => r.phi);
+  const xMaxA = Math.max(...allPhi) * 1.15;
+  const dsA = allResults.map((r, i) => ({
+    label: names[i],
+    data: r.phi.map((p, j) => ({ x: p, y: r.kappa[j] })),
+    backgroundColor: colors[i], borderColor: colors[i],
+    pointRadius: 5, pointHoverRadius: 7,
+  }));
+  chartA = new Chart(ctxA, {
+    type: "scatter", data: { datasets: dsA },
+    options: {
+      responsive: true,
+      plugins: { title: { display: true, text: "(a) κ vs φ", font: { size: 13, weight: "700" }, align: "start" } },
+      scales: {
+        x: { title: { display: true, text: "φ (wt%)" }, min: 0, max: xMaxA },
+        y: { title: { display: true, text: "κ (S/m)" }, type: "logarithmic" },
+      },
+    },
+  });
+
+  // Chart B: ln(κ) vs ln(φ-φc) overlay
+  const ctxB = document.getElementById("chartB").getContext("2d");
+  const dsB = [];
+  for (let i = 0; i < allResults.length; i++) {
+    const r = allResults[i];
+    const best = r.refined || r.bestGrid;
+    const pc = best.phi_c;
+    const pts = [];
+    for (let j = 0; j < r.phi.length; j++) {
+      const d = r.phi[j] - pc;
+      if (d > 0) pts.push({ x: Math.log(d), y: Math.log(r.kappa[j]) });
+    }
+    dsB.push({
+      label: names[i],
+      data: pts,
+      backgroundColor: colors[i], borderColor: colors[i],
+      pointRadius: 5, pointHoverRadius: 7,
+    });
+    // Fit line
+    const xAll = pts.map(p => p.x);
+    const xMn = Math.min(...xAll), xMx = Math.max(...xAll);
+    const line = [];
+    for (let k = 0; k <= 60; k++) {
+      const xv = xMn - 0.2 + (xMx - xMn + 0.4) * k / 60;
+      line.push({ x: xv, y: best.t * xv + best.ln_k0 });
+    }
+    dsB.push({
+      label: `${names[i]} Fit`,
+      data: line, type: "line",
+      borderColor: colors[i], borderWidth: 1.5, borderDash: [4, 3],
+      pointRadius: 0, fill: false,
+    });
+  }
+  chartB = new Chart(ctxB, {
+    type: "scatter", data: { datasets: dsB },
+    options: {
+      responsive: true,
+      plugins: { title: { display: true, text: "(b) ln(κ) vs ln(φ−φc)", font: { size: 13, weight: "700" }, align: "start" } },
+      scales: {
+        x: { title: { display: true, text: "ln(φ − φc)" } },
+        y: { title: { display: true, text: "ln(κ)" } },
+      },
+    },
+  });
+}
+
+function renderResults(data, isLocked) {
+  const { grid, bestGrid, refined, refineSteps, phi, kappa, n } = data;
+  const best = refined || bestGrid;
+
+  // 警告
+  const warnDiv = document.getElementById("fitWarning");
+  if (isLocked) {
+    warnDiv.innerHTML = `<div class="warning-box">🔒 φc 已锁定为 ${best.phi_c.toFixed(4)} wt%</div>`;
+  } else if (!refined && n < 5) {
+    warnDiv.innerHTML = `<div class="warning-box">⚠ <strong>仅 ${n} 个数据点</strong>：R² 对 φc 不敏感，精化结果依赖数据质量。≥5 个点更可靠。</div>`;
+  } else {
+    warnDiv.innerHTML = "";
+  }
+
+  // --- banner ---
+  document.getElementById("resultCard").style.display = "";
+  const bannerDiv = document.getElementById("resultBanner");
+  let bannerHTML = `
+    <div class="param star"><div class="val">${best.phi_c.toFixed(4)}</div><div class="lbl">φc 渗流阈值 (wt%)</div></div>
+    <div class="param"><div class="val">${best.t.toFixed(4)}</div><div class="lbl">t 临界指数</div></div>
+    <div class="param"><div class="val">${best.k0.toExponential(4)}</div><div class="lbl">κ₀ 拟合常数 (S/m)</div></div>
+    <div class="param"><div class="val">${best.r2.toFixed(6)}</div><div class="lbl">R²</div></div>
+    <div class="param"><div class="val">${best.adjR2.toFixed(6)}</div><div class="lbl">Adj. R²</div></div>`;
+  if (refined && !isLocked) {
+    bannerHTML += `<div class="param"><div class="val" style="font-size:.8rem;color:var(--label-secondary)">RSS → min</div><div class="lbl">方法</div></div>`;
+  }
+  bannerHTML += `<div class="param" style="cursor:pointer" onclick="openReport()" title="导出拟合报告">
+    <div class="val" style="font-size:.8rem;color:var(--apple-blue)">📋 导出</div><div class="lbl">报告</div></div>`;
+  bannerDiv.innerHTML = bannerHTML;
+
+  // --- 精化过程表 ---
+  const stepsCard = document.getElementById("stepsCard");
+  const stepsBody = document.getElementById("stepsBody");
+  if (refineSteps && refineSteps.length > 1) {
+    stepsCard.style.display = "";
+    let html = "";
+    for (const s of refineSteps) {
+      html += `<tr>
+        <td>${s.iter}</td>
+        <td>[${s.a.toFixed(5)}, ${s.b.toFixed(5)}]</td>
+        <td>${s.c.toFixed(5)}</td><td>${s.rss_c != null ? s.rss_c.toExponential(4) : "—"}</td>
+        <td>${s.d.toFixed(5)}</td><td>${s.rss_d != null ? s.rss_d.toExponential(4) : "—"}</td>
+        <td>${(s.b - s.a).toFixed(5)}</td>
+      </tr>`;
+    }
+    stepsBody.innerHTML = html;
+  } else {
+    stepsCard.style.display = "none";
+  }
+
+  // --- 候选表 ---
+  document.getElementById("tableCard").style.display = "";
+  const tbody = document.getElementById("tableBody");
+  let thtml = "";
+  for (const r of grid) {
+    const isBest = r === bestGrid;
+    const isRefined = refined && Math.abs(r.phi_c - refined.phi_c) < 0.00005;
+    let cls = "";
+    if (isRefined) cls = "best";
+    else if (isBest) cls = "near";
+    thtml += `<tr class="${cls}">
+      <td>${r.phi_c.toFixed(4)}</td>
+      <td>${r.t.toFixed(4)}</td>
+      <td>${r.ln_k0.toFixed(4)}</td>
+      <td>${r.k0.toExponential(4)}</td>
+      <td>${r.r2.toFixed(6)}</td>
+      <td>${r.adjR2.toFixed(6)}</td>
+    </tr>`;
+  }
+  tbody.innerHTML = thtml;
+  lastGridData = grid;
+
+  // --- charts ---
+  document.getElementById("chartCard").style.display = "";
+  destroyCharts();
+
+  // 图 A: κ vs φ (log y)
+  const ctxA = document.getElementById("chartA").getContext("2d");
+  const xMinA = 0, xMaxA = Math.max(...phi) * 1.15;
+  chartA = new Chart(ctxA, {
+    type: "scatter",
+    data: {
+      datasets: [{
+        label: "Data",
+        data: phi.map((p, i) => ({ x: p, y: kappa[i] })),
+        backgroundColor: "#2563eb", borderColor: "#1d4ed8",
+        pointRadius: 6, pointHoverRadius: 8,
+      }],
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        title: { display: true, text: "(a) κ vs φ", font: { size: 13, weight: "700" }, align: "start" },
+      },
+      scales: {
+        x: { title: { display: true, text: "φ (wt%)" }, min: xMinA, max: xMaxA },
+        y: { title: { display: true, text: "κ (S/m)" }, type: "logarithmic" },
+      },
+    },
+  });
+
+  // 图 B: ln(κ) vs ln(φ−φc)
+  const bestPc = best.phi_c;
+  const xFit = [], yFit = [];
+  for (let i = 0; i < phi.length; i++) {
+    const d = phi[i] - bestPc;
+    if (d <= 0) continue;
+    xFit.push(Math.log(d));
+    yFit.push(Math.log(kappa[i]));
+  }
+  const xLine = [];
+  const xMinB = Math.min(...xFit), xMaxB = Math.max(...xFit);
+  const pad = 0.2;
+  for (let i = 0; i <= 60; i++) {
+    const xv = xMinB - pad + (xMaxB - xMinB + 2 * pad) * i / 60;
+    xLine.push({ x: xv, y: best.t * xv + best.ln_k0 });
+  }
+
+  const ctxB = document.getElementById("chartB").getContext("2d");
+  chartB = new Chart(ctxB, {
+    type: "scatter",
+    data: {
+      datasets: [
+        {
+          label: "Data",
+          data: xFit.map((x, i) => ({ x, y: yFit[i] })),
+          backgroundColor: "#2563eb", borderColor: "#1d4ed8",
+          pointRadius: 6, pointHoverRadius: 8,
+        },
+        {
+          label: `Fit  R²=${best.r2.toFixed(4)}`,
+          data: xLine, type: "line",
+          borderColor: "#ef4444", borderWidth: 2,
+          pointRadius: 0, fill: false,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        title: {
+          display: true,
+          text: `(b) ln(κ) vs ln(φ−φc)  [φc=${bestPc.toFixed(4)}]`,
+          font: { size: 13, weight: "700" }, align: "start",
+        },
+      },
+      scales: {
+        x: { title: { display: true, text: "ln(φ − φc)" } },
+        y: { title: { display: true, text: "ln(κ)" } },
+      },
+    },
+  });
+
+  // ── 专家诊断 ──────────────────────────────────────────
+  const expertCard = document.getElementById("expertCard");
+  if (data.lockedPhiC === null && grid.length >= 5) {
+    expertCard.style.display = "";
+
+    // RSS curve
+    const rssVals = grid.filter(g => g.rss != null).sort((a, b) => a.phi_c - b.phi_c);
+    const ctxRSS = document.getElementById("chartRSS").getContext("2d");
+    chartRSS = new Chart(ctxRSS, {
+      type: "line",
+      data: {
+        datasets: [{
+          data: rssVals.map(g => ({ x: g.phi_c, y: g.rss })),
+          borderColor: "#0071e3", backgroundColor: "rgba(0,113,227,.08)",
+          borderWidth: 2, pointRadius: 0, fill: true, tension: .3,
+        }],
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          title: { display: true, text: "RSS(φc) 敏感度曲线", font: { size: 13, weight: "700" }, align: "start" },
+          annotation: best ? {
+            annotations: {
+              line1: { type: "line", xMin: best.phi_c, xMax: best.phi_c, borderColor: "#ff9500", borderWidth: 1.5, borderDash: [4, 3], label: { display: true, content: `φc=${best.phi_c.toFixed(4)}`, position: "start", backgroundColor: "rgba(255,149,0,.15)", color: "#b46400", font: { size: 10 } } }
+            }
+          } : {},
+        },
+        scales: {
+          x: { title: { display: true, text: "φc (wt%)" } },
+          y: { title: { display: true, text: "RSS" }, min: 0 },
+        },
+      },
+    });
+
+    // Diagnostics
+    const curv = computeCurvature(grid, best.phi_c);
+    const tLevel = assessT(best.t);
+    const plateau = assessPlateau(grid);
+
+    const dg = document.getElementById("diagGrid");
+    dg.innerHTML = `
+      <div class="diag-item ${curv.cls}">
+        <div class="diag-label">RSS 曲率 (φc 辨识度)</div>
+        <div class="diag-val">${curv.text}</div>
+        <div class="diag-sub">${curv.detail}</div>
+      </div>
+      <div class="diag-item ${tLevel.cls}">
+        <div class="diag-label">临界指数 t = ${best.t.toFixed(3)}</div>
+        <div class="diag-val">${tLevel.text}</div>
+        <div class="diag-sub">${tLevel.detail}</div>
+      </div>
+      <div class="diag-item ${plateau.cls}">
+        <div class="diag-label">R² 平台宽度</div>
+        <div class="diag-val">Δφc = ${plateau.width.toFixed(3)}</div>
+        <div class="diag-sub">${plateau.detail}</div>
+      </div>
+    `;
+  } else {
+    expertCard.style.display = "none";
+  }
+
+  // ── 残差诊断 + 物理校验 ──────────────────────────
+  const residCard = document.getElementById("residCard");
+  residCard.style.display = "";
+
+  // Compute residuals
+  const pc = best.phi_c;
+  const resids = [];
+  const fitted = [];
+  const xvals = [];
+  for (let i = 0; i < phi.length; i++) {
+    const d = phi[i] - pc;
+    if (d <= 0) continue;
+    const xv = Math.log(d);
+    const yv = Math.log(kappa[i]);
+    const yp = best.t * xv + best.ln_k0;
+    resids.push({ x: yp, y: yv - yp });
+    fitted.push(yp);
+    xvals.push(xv);
+  }
+
+  // Residuals vs fitted plot
+  const ctxResid = document.getElementById("chartResid").getContext("2d");
+  chartResid = new Chart(ctxResid, {
+    type: "scatter",
+    data: {
+      datasets: [
+        { label: "Residuals", data: resids, backgroundColor: "#0071e3", pointRadius: 5 },
+        { label: "Zero", data: [{ x: Math.min(...fitted) - 0.3, y: 0 }, { x: Math.max(...fitted) + 0.3, y: 0 }], type: "line", borderColor: "#ccc", borderWidth: 1, borderDash: [4, 4], pointRadius: 0 },
+      ],
+    },
+    options: {
+      responsive: true,
+      plugins: { title: { display: true, text: "残差 vs 拟合值", font: { size: 13, weight: "700" }, align: "start" } },
+      scales: {
+        x: { title: { display: true, text: "ln(κ) 拟合值" } },
+        y: { title: { display: true, text: "残差" } },
+      },
+    },
+  });
+
+  // Physical checks
+  const phys = computePhysics(phi, kappa, best);
+  const pg = document.getElementById("physGrid");
+  pg.innerHTML = `
+    <div class="diag-item ${phys.mono.cls}">
+      <div class="diag-label">导电率单调性</div>
+      <div class="diag-val">${phys.mono.text}</div>
+      <div class="diag-sub">${phys.mono.detail}</div>
+    </div>
+    <div class="diag-item ${phys.jump.cls}">
+      <div class="diag-label">逾渗跃迁检测</div>
+      <div class="diag-val">${phys.jump.text}</div>
+      <div class="diag-sub">${phys.jump.detail}</div>
+    </div>
+    <div class="diag-item ${phys.nonlin.cls}">
+      <div class="diag-label">ln(κ)~ln(φ−φc) 线性度</div>
+      <div class="diag-val">${phys.nonlin.text}</div>
+      <div class="diag-sub">${phys.nonlin.detail}</div>
+    </div>
+  `;
+}
+
+// ── 物理校验函数 ────────────────────────────────────
+function computePhysics(phi, kappa, best) {
+  // Monotonicity: κ should increase with φ above φc
+  let mono = { cls: "diag-ok", text: "单调 ✓", detail: "κ 随 φ 严格递增" };
+  const above = phi.map((p, i) => ({ p, k: kappa[i] })).filter(d => d.p > best.phi_c).sort((a, b) => a.p - b.p);
+  for (let i = 1; i < above.length; i++) {
+    if (above[i].k <= above[i-1].k) {
+      mono = { cls: "diag-warn", text: "非单调 ⚠", detail: `φ=${above[i].p.toFixed(2)} 处 κ 下降，检查数据` };
+      break;
+    }
+  }
+
+  // Conductivity jump: the ratio κ_max / κ_before_jump
+  const jumpRatio = above.length >= 2 ? above[above.length-1].k / above[0].k : 1;
+  let jump;
+  if (jumpRatio > 100) {
+    jump = { cls: "diag-ok", text: `${jumpRatio.toExponential(1)} ✓`, detail: "导电率跨越多数量级，逾渗特征显著" };
+  } else if (jumpRatio > 10) {
+    jump = { cls: "diag-warn", text: `${jumpRatio.toFixed(0)}× ⚠`, detail: "跃迁幅度偏小，检查是否到达逾渗区域" };
+  } else {
+    jump = { cls: "diag-bad", text: `${jumpRatio.toFixed(1)}× ✗`, detail: "跃迁不明显，可能数据仍在逾渗前区域" };
+  }
+
+  // Nonlinearity: check residuals for systematic patterns
+  const rs = [];
+  for (let i = 0; i < phi.length; i++) {
+    const d = phi[i] - best.phi_c;
+    if (d <= 0) continue;
+    const yp = best.t * Math.log(d) + best.ln_k0;
+    rs.push({ x: Math.log(d), r: Math.log(kappa[i]) - yp });
+  }
+  const absResid = rs.map(r => Math.abs(r.r));
+  const maxResid = Math.max(...absResid);
+  const meanAbsResid = absResid.reduce((a, b) => a + b, 0) / absResid.length;
+  let nonlin;
+  if (maxResid < 0.05) {
+    nonlin = { cls: "diag-ok", text: "线性 ✓", detail: "最大残差 < 0.05，逾渗模型适用" };
+  } else if (maxResid < 0.2) {
+    nonlin = { cls: "diag-warn", text: "轻微弯曲 ⚠", detail: `最大残差 = ${maxResid.toFixed(3)}，存在轻微非线性` };
+  } else {
+    nonlin = { cls: "diag-bad", text: "非线性 ✗", detail: `最大残差 = ${maxResid.toFixed(3)}，逾渗模型可能不适用` };
+  }
+
+  return { mono, jump, nonlin };
+}
+
+// ── CSV 导出 ──────────────────────────────────────
+let lastGridData = null;
+function exportCSV() {
+  if (!lastGridData) return;
+  const rows = [
+    "φc (wt%),t,ln(κ₀),κ₀ (S/m),R²,Adj.R²"
+  ];
+  for (const r of lastGridData) {
+    rows.push(`${r.phi_c},${r.t},${r.ln_k0},${r.k0},${r.r2},${r.adjR2}`);
+  }
+  const blob = new Blob([rows.join("\n")], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = "percolation_fit_results.csv"; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ── 诊断辅助函数（保留） ──────────────────────────────────────
+function computeCurvature(grid, bestPhiC) {
+  const near = grid.filter(g => Math.abs(g.phi_c - bestPhiC) < 0.05).sort((a, b) => a.phi_c - b.phi_c);
+  if (near.length < 3) return { cls: "diag-warn", text: "数据不足", detail: "无法评估曲率" };
+  const rss0 = near[Math.floor(near.length/2)].rss;
+  const rssL = near[0].rss;
+  const rssR = near[near.length-1].rss;
+  const deltaRSS = Math.max(rssL, rssR) - rss0;
+  const relCurv = deltaRSS / Math.max(1e-15, rss0);
+  if (relCurv > 0.1) return { cls: "diag-ok", text: "锐利 ✓", detail: `RSS 对 φc 高度敏感 (ΔRSS/RSS = ${(relCurv*100).toFixed(1)}%)，φc 可唯一确定` };
+  if (relCurv > 0.01) return { cls: "diag-warn", text: "平缓 ⚠", detail: `RSS 谷底较宽 (${(relCurv*100).toFixed(1)}%)，建议增加数据点` };
+  return { cls: "diag-bad", text: "极平 ✗", detail: `RSS 几乎无变化 (${(relCurv*100).toFixed(2)}%)，φc 不可靠` };
+}
+
+function assessT(t) {
+  if (t >= 1.6 && t <= 2.5) return { cls: "diag-ok", text: "3D 逾渗 ✓", detail: "t = 1.6~2.0 (理论 3D 普适值)，符合经典逾渗理论" };
+  if (t >= 1.0 && t < 1.6) return { cls: "diag-ok", text: "2D 逾渗 ✓", detail: "t = 1.1~1.3 (理论 2D 普适值)，体系可能呈现二维特征" };
+  if (t >= 2.5 && t <= 3.5) return { cls: "diag-warn", text: "偏高 ⚠", detail: "t > 2.5，超出经典逾渗普适值，常见于 CNT/聚合物体系（隧穿效应主导）" };
+  return { cls: "diag-bad", text: "异常 ✗", detail: "t 在理论范围外，检查数据或模型适用性" };
+}
+
+function assessPlateau(grid) {
+  const sorted = grid.filter(g => g.r2 != null).sort((a, b) => b.r2 - a.r2);
+  const bestR2 = sorted[0].r2;
+  const threshold = bestR2 - 0.0001;
+  const inPlateau = sorted.filter(g => g.r2 >= threshold);
+  const phiCs = inPlateau.map(g => g.phi_c);
+  const width = Math.max(...phiCs) - Math.min(...phiCs);
+  if (width < 0.02) return { cls: "diag-ok", text: "窄 ✓", width, detail: "R² 平台极窄，φc 辨识度高" };
+  if (width < 0.08) return { cls: "diag-warn", text: "中等 ⚠", width, detail: "多个 φc 的 R² 接近，建议 ≥5 个数据点" };
+  return { cls: "diag-bad", text: "过宽 ✗", width, detail: "R² 平台过宽 (>" + (0.08).toFixed(2) + ")，需增加数据或锁定 φc" };
+}
+
+function showError(msg) {
+  destroyCharts();
+  document.getElementById("resultCard").style.display = "";
+  document.getElementById("resultBanner").innerHTML =
+    `<span style="color:#d7191c;font-weight:600">⚠ ${msg}</span>`;
+  document.getElementById("tableCard").style.display = "none";
+  document.getElementById("chartCard").style.display = "none";
+}
+
+// ============================================================
+//  报告导出
+// ============================================================
+let lastReportData = null;
+
+function buildReport(data, isLocked) {
+  const { grid, bestGrid, refined, refineSteps, phi, kappa, n, lockedPhiC } = data;
+  const best = refined || bestGrid;
+  const pc = best.phi_c;
+
+  let r = "";
+  r += "══════════════════════════════════════════\n";
+  r += "  Percolation Threshold Fitting Report\n";
+  r += "══════════════════════════════════════════\n\n";
+
+  r += "【实验数据】\n";
+  r += "φ (wt%):  " + phi.map(v => v.toFixed(4)).join(", ") + "\n";
+  r += "κ (S/m):  " + kappa.map(v => v.toExponential(4)).join(", ") + "\n";
+  r += `数据点数: n = ${n}\n\n`;
+
+  r += "【拟合方法】\n";
+  r += "模型: κ = κ₀(φ − φc)^t\n";
+  r += "线性化: ln(κ) = ln(κ₀) + t·ln(φ − φc)\n";
+  if (isLocked) {
+    r += `φc 固定为 ${pc.toFixed(4)} wt%（手动指定）\n`;
+  } else {
+    r += `阶段1: 网格扫描 (步长 ${document.getElementById("phiStep").value}), ${grid.length} 个候选 φc\n`;
+    if (refined) {
+      r += `阶段2: 黄金分割搜索, ${refineSteps.length} 次迭代\n`;
+      r += `  RSS 收敛: ${refineSteps[0].rss_c != null ? refineSteps[0].rss_c.toExponential(3) : "—"} → ${best.rss.toExponential(3)}\n`;
+    }
+  }
+  r += `拟合空间: ln(κ) ~ ln(φ − φc)\n\n`;
+
+  r += "【拟合结果】\n";
+  r += "──────────────────────────────────────────\n";
+  r += `  φc    = ${pc.toFixed(4)}  wt%\n`;
+  r += `  t     = ${best.t.toFixed(4)}\n`;
+  r += `  ln(κ₀)= ${best.ln_k0.toFixed(4)}\n`;
+  r += `  κ₀    = ${best.k0.toExponential(4)}  S/m\n`;
+  r += `  R²    = ${best.r2.toFixed(6)}\n`;
+  r += `  Adj R²= ${best.adjR2.toFixed(6)}\n`;
+  r += "──────────────────────────────────────────\n\n";
+
+  r += "【拟合方程】\n";
+  r += `ln(κ) = ${best.ln_k0 >= 0 ? "" : ""}${best.ln_k0.toFixed(4)} + ${best.t.toFixed(4)}·ln(φ − ${pc.toFixed(4)})\n`;
+  r += `κ = ${best.k0.toExponential(4)}·(φ − ${pc.toFixed(4)})^${best.t.toFixed(4)}\n\n`;
+
+  r += "【LaTeX 格式】\n";
+  r += `\\begin{align}\n`;
+  r += `  \\kappa &= \\kappa_0 (\\phi - \\phi_c)^t \\\\\n`;
+  r += `  \\kappa_0 &= ${best.k0.toExponential(3)}\\ \\mathrm{S/m} \\\\\n`;
+  r += `  \\phi_c  &= ${pc.toFixed(2)}\\ \\mathrm{wt\\%} \\\\\n`;
+  r += `  t       &= ${best.t.toFixed(3)} \\\\\n`;
+  r += `  R^2     &= ${best.r2.toFixed(4)}\n`;
+  r += `\\end{align}\n\n`;
+
+  r += "【候选 φc 扫描 (Top 5)】\n";
+  const top5 = grid.slice(0, Math.min(5, grid.length));
+  r += "  φc        t        κ₀           R²\n";
+  r += "  ────────────────────────────────────\n";
+  for (const g of top5) {
+    r += `  ${g.phi_c.toFixed(4).padStart(6)}   ${g.t.toFixed(4).padStart(6)}   ${g.k0.toExponential(3).padStart(10)}   ${g.r2.toFixed(6)}\n`;
+  }
+
+  r += "\n══════════════════════════════════════════\n";
+  r += `  Generated: ${new Date().toISOString().slice(0, 19).replace("T", " ")}\n`;
+  r += "══════════════════════════════════════════\n";
+
+  return r;
+}
+
+function openReport() {
+  if (!lastReportData) return;
+  const body = document.getElementById("modalBody");
+  body.textContent = buildReport(lastReportData.data, lastReportData.isLocked);
+  document.getElementById("reportModal").classList.add("show");
+}
+
+function closeReport() {
+  document.getElementById("reportModal").classList.remove("show");
+}
+
+document.getElementById("modalClose").addEventListener("click", closeReport);
+document.getElementById("reportModal").addEventListener("click", e => {
+  if (e.target === e.currentTarget) closeReport();
+});
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") closeReport();
+});
+
+document.getElementById("copyReport").addEventListener("click", () => {
+  const text = document.getElementById("modalBody").textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById("copyReport");
+    const orig = btn.textContent;
+    btn.textContent = "✅ 已复制";
+    setTimeout(() => btn.textContent = orig, 1500);
+  });
+});
+
+document.getElementById("printReport").addEventListener("click", () => {
+  window.print();
+});
+
+// ============================================================
+//  事件
+// ============================================================
+document.getElementById("runBtn").addEventListener("click", () => {
+  try {
+    const phiStart = parseFloat(document.getElementById("phiStart").value) || 0.01;
+    const phiStep  = parseFloat(document.getElementById("phiStep").value)  || 0.01;
+    const useLock  = document.getElementById("lockPhiC").checked;
+    const locked   = useLock ? parseFloat(document.getElementById("lockedPhiC").value) : null;
+
+    const datasets = getAllDatasets();
+    if (datasets.length === 0) throw new Error("至少需要 1 组有效的实验数据（≥3 个数据点且 φ 与 κ 数量一致）");
+
+    const allResults = [];
+    for (const ds of datasets) {
+      const raw = ds.phi.join("\n") + "\n" + ds.kappa.join("\n");
+      // Build phi/kappa raw strings
+      const phiRaw = ds.phi.join("\n");
+      const kappaRaw = ds.kappa.join("\n");
+      const data = doFitting(phiRaw, kappaRaw, phiStart, phiStep, locked);
+      data.dsName = ds.name;
+      data.dsId = ds.id;
+      allResults.push(data);
+    }
+
+    lastReportData = { data: allResults[0], isLocked: useLock };
+    renderMultiResults(allResults, useLock, datasets.length > 1);
+  } catch (e) {
+    showError(e.message);
+  }
+});
+
+// 精度预设按钮
+document.querySelectorAll(".preset-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".preset-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    const step = parseFloat(btn.dataset.step);
+    document.getElementById("phiStart").value = step;
+    document.getElementById("phiStep").value  = step;
+  });
+});
+
+// 锁定复选框切换
+const lockCb = document.getElementById("lockPhiC");
+const lockIn = document.getElementById("lockedPhiC");
+lockCb.addEventListener("change", () => {
+  lockIn.disabled = !lockCb.checked;
+  const lg = document.getElementById("lockGroup");
+  if (lockCb.checked) { lg.classList.add("active"); lockIn.focus(); }
+  else { lg.classList.remove("active"); }
+});
+
+// 数据集 Tab 切换
+document.querySelectorAll(".ds-tab").forEach(tab => {
+  tab.addEventListener("click", () => {
+    document.querySelectorAll(".ds-tab").forEach(t => t.classList.remove("active"));
+    document.querySelectorAll(".ds-panel").forEach(p => p.classList.remove("active"));
+    tab.classList.add("active");
+    document.querySelector(`.ds-panel[data-ds="${tab.dataset.ds}"]`).classList.add("active");
+  });
+});
+
+// 获取所有非空数据集
+function getAllDatasets() {
+  const datasets = [];
+  for (let i = 1; i <= 4; i++) {
+    const phiRaw = document.getElementById(`phiInput${i}`).value.trim();
+    const kappaRaw = document.getElementById(`kappaInput${i}`).value.trim();
+    if (!phiRaw || !kappaRaw) continue;
+    const phiArr = phiRaw.split(/[\n,;\s]+/).map(Number).filter(x => !isNaN(x));
+    const kappaArr = kappaRaw.split(/[\n,;\s]+/).map(Number).filter(x => !isNaN(x));
+    if (phiArr.length >= 3 && phiArr.length === kappaArr.length) {
+      datasets.push({ id: i, name: `数据 ${i}`, phi: phiArr, kappa: kappaArr });
+    }
+  }
+  return datasets;
+}
+
+// 数据输入实时检查
+function checkDataSufficiency() {
+  let total = 0;
+  for (let i = 1; i <= 4; i++) {
+    const phiArr = (document.getElementById(`phiInput${i}`).value || "").split(/[\n,;\s]+/).map(Number).filter(x => !isNaN(x));
+    if (phiArr.length >= 3) total++;
+  }
+  const warnDiv = document.getElementById("dataWarning");
+  if (total === 0) {
+    warnDiv.innerHTML = "";
+  } else if (total === 1) {
+    const phiArr = (document.getElementById("phiInput1").value || "").split(/[\n,;\s]+/).map(Number).filter(x => !isNaN(x));
+    if (phiArr.length < 5) {
+      warnDiv.innerHTML = `<div class="warning-box">⚠ <strong>数据点过少 (${phiArr.length} 个)</strong> — 建议至少 5 个点。</div>`;
+    } else {
+      warnDiv.innerHTML = `<div class="success-hint">✓ ${phiArr.length} 个数据点，拟合可靠</div>`;
+    }
+  } else {
+    warnDiv.innerHTML = `<div class="success-hint">✓ ${total} 组数据集已就绪</div>`;
+  }
+}
+for (let i = 1; i <= 4; i++) {
+  document.getElementById(`phiInput${i}`).addEventListener("input", checkDataSufficiency);
+  document.getElementById(`kappaInput${i}`).addEventListener("input", checkDataSufficiency);
+}
+checkDataSufficiency();
+
+document.getElementById("loadDemo").addEventListener("click", () => {
+  document.getElementById("phiInput1").value   = "0.5\n1.0\n2.0";
+  document.getElementById("kappaInput1").value = "0.036\n0.395\n3.895";
+  document.getElementById("phiStart").value   = "0.01";
+  document.getElementById("phiStep").value    = "0.01";
+});
+
+// 回车快捷
+document.getElementById("phiInput").addEventListener("keydown", e => {
+  if (e.ctrlKey && e.key === "Enter") document.getElementById("runBtn").click();
+});
+document.getElementById("kappaInput").addEventListener("keydown", e => {
+  if (e.ctrlKey && e.key === "Enter") document.getElementById("runBtn").click();
+});
+</script>
+</body>
+</html>
