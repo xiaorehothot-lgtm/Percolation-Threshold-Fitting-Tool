@@ -44,6 +44,9 @@ Linearized for fitting:
 
 $$\ln(\kappa) = \ln(\kappa_0) + t \cdot \ln(\phi - \phi_c)$$
 
+If you find it useful, please contact me. I can customize this tool for you. Of course, this is a paid service, but the cost won't be high; it's just to cover the basic maintenance costs of the software.
+邮箱：xiaoresmallhot@163.com
+Thank You！！！
 The tool uses **profile likelihood (concentrated least squares)**: for each candidate φc, the inner OLS problem has a closed-form solution. A golden-section search then refines φc to RSS minimum.
 
 
