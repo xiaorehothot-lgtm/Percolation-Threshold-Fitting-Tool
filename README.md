@@ -46,3 +46,58 @@ $$\ln(\kappa) = \ln(\kappa_0) + t \cdot \ln(\phi - \phi_c)$$
 
 The tool uses **profile likelihood (concentrated least squares)**: for each candidate φc, the inner OLS problem has a closed-form solution. A golden-section search then refines φc to RSS minimum.
 
+
+---
+
+### Step 3：上传文件
+
+在仓库主页点 `Add file` → `Upload files`，把以下文件拖进去：
+
+| 文件 | 你在本地的路径 |
+|------|---------------|
+| 核心工具 | `G:\AcademicTools\percolation_tool.html` |
+| 英文指南 | `G:\AcademicTools\tool-guide-en.md` （放到 `docs/` 目录） |
+
+---
+
+### Step 4：创建 LICENSE
+
+`Add file` → `Create new file` → 文件名填 `LICENSE` → 粘贴：
+MIT License
+
+Copyright (c) 2025 你的名字
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+### Step 5：创建 CITATION.cff
+
+`Create new file` → 文件名 `CITATION.cff`：
+
+```yaml
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+  - family-names: "你的姓"
+    given-names: "你的名"
+title: "Percolation Threshold Fitting Tool"
+version: 1.0.0
+date-released: 2025-06-01
+url: "https://github.com/你的用户名/percolation-tool"
